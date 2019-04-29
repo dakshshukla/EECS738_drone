@@ -1,0 +1,15 @@
+<package>
+  <description brief="Drone">
+  	Controller for human object following
+  </description>
+  <author>Daksh Shukla</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://github</url>
+
+  <depend package="ardrone_autonomy" />
+  <depend package="joy" />
+  
+</package>
+
+
