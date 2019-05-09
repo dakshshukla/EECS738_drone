@@ -15,6 +15,7 @@ from std_msgs.msg import Float64MultiArray
 from PySide import QtCore, QtGui
 import numpy as np
 from geometry_msgs.msg import Quaternion
+from geometry_msgs.msg import Twist
 
 # Here we define the keyboard map for our controller (note that python has no enums, so we use a class)
 class KeyMapping(object):
@@ -37,9 +38,8 @@ class KeyboardController(DroneVideoDisplay):
 		
 		self.rollGains = np.zeros((2,1))
 		self.rollGains[1,0] = 1*2*(np.pi)*2/1.81 # f(2pi)*2/weight_kg
-		self.rollGains[0,0] = (-1.8/4)*(self.rollGains[1,0])**2 # (-T/4)*Kd^2
+		self.rollGains[0,0] = (1)*(-1.8/4)*(self.rollGains[1,0])**2 # (-T/4)*Kd^2
 		self.rollCommLimit = [-10, 10]
-
 		self.pitch = 0
 		self.roll = 0
 		self.yaw_velocity = 0
@@ -50,14 +50,24 @@ class KeyboardController(DroneVideoDisplay):
 		self.pertXRate = 0
 		self.pertZRate = 0
 
-		#self.subDetBox = rospy.Subscriber('/ardrone/pubDetBox',Quaternion,self.DetBox)
+		self.subDetBox = rospy.Subscriber('/ardrone/pubDetBox',Twist,self.DetBox_fun)
 
 	def updateTrackingControl(self):
 		#self.roll = self.limitCommRoll(self.pdCommandedRoll(pertX, pertXRate))
-		self.roll = self.pdCommandedRoll(self.pertX, self.pertXRate)
-		print(self.roll)
+		rollCmd = self.pdCommandedRoll(self.pertX, self.pertXRate)
+		max_s = +1
+		min_s = -1
+		max_i = +8
+		min_i = -8
+		self.roll = (max_s - min_s)*(rollCmd - min_i)/(max_i - min_i) + min_s
+		if self.roll > 0:
+			print("Roll Right: " + str(self.roll))
+		elif self.roll < 0:
+			print("Roll Left: " + str(self.roll))
+		else:
+			print("Don't Move")
 		#self.pitch = self.limitCommPitch(self.pdCommandedPitch(pertZ, pertZRate))
-		controller.SetCommand(self.roll, self.pitch, self.yaw_velocity,self.z_velocity)
+		controller.SetCommand(-self.roll, 0, 0, 0)
 
 	 #PD controller
 	def pdCommandedRoll(self, perturbedX, perturbedXRate):
@@ -65,17 +75,26 @@ class KeyboardController(DroneVideoDisplay):
 		roll_c = perturbedX*self.rollGains[0,0] + perturbedXRate*self.rollGains[1,0]
 		return roll_c
 
-	def DetBox(self, box):
-		print(box)
-		#xMin = DetBox.y
-		#xMax = DetBox.w
-		if xMin < 0.3:
+	def DetBox_fun(self, box):
+		#print(box)
+		xMin = box.linear.y
+		xMax = box.angular.x
+		center_pt = (xMin + xMax)/2
+		'''if xMin < 0.3:
 			self.pertX = 0.4 - xMin
 		elif xMax > 0.7:
 			self.pertX = 0.7 - xMax
+		else:
+			self.pertX = 0'''
+		if center_pt > 0.6 or center_pt < 0.4:
+			self.pertX = 0.5 - center_pt
+		else:
+			self.pertX = 0
+		print("Box Center Location: " + str(center_pt*100) + " %")
 		self.pertZ = 0
 		self.pertXRate = 0
 		self.pertZRate = 0
+		self.updateTrackingControl()
 
 # We add a keyboard handler to the DroneVideoDisplay to react to keypresses
 	def keyPressEvent(self, event):
@@ -99,6 +118,7 @@ class KeyboardController(DroneVideoDisplay):
 
 				elif key == KeyMapping.PitchForward:
 					self.pitch += 1
+					
 				elif key == KeyMapping.PitchBackward:
 					self.pitch += -1
 
@@ -111,7 +131,8 @@ class KeyboardController(DroneVideoDisplay):
 					self.z_velocity += 1
 				elif key == KeyMapping.DecreaseAltitude:
 					self.z_velocity += -1
-
+				print(self.pitch)
+				print(self.roll)
 			# finally we set the command to be sent. The controller handles sending this at regular intervals
 			controller.SetCommand(self.roll, self.pitch, self.yaw_velocity, self.z_velocity)
 

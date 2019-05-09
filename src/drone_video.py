@@ -35,6 +35,7 @@ from object_detection.utils import label_map_util
 from object_detection.utils import ops as utils_ops
 from object_detection.utils import visualization_utils as vis_util
 
+from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Quaternion
 
 # Some Constants
@@ -127,8 +128,8 @@ class DroneVideoDisplay(QtGui.QMainWindow):
 	        self._path_to_labels = self._tf_object_detection_path + '/' + \
 	            'data/' + "mscoco_label_map.pbtxt"
 
-		self.pubDetBox = rospy.Publisher('/ardrone/pubDetBox',Quaternion)
-		self.DetBox = Quaternion()
+		self.pubDetBox = rospy.Publisher('/ardrone/pubDetBox',Twist)
+		self.DetBox = Twist()#Quaternion()
 
 		self.prepare()
 
@@ -191,21 +192,21 @@ class DroneVideoDisplay(QtGui.QMainWindow):
 				m_score = 0
 				m_idx = -1
 				for idx in range(len(output_dict['detection_classes'])):
-					if (output_dict['detection_classes'][idx] == 1) and (output_dict['detection_scores'][idx] > 0.61):
+					if (output_dict['detection_classes'][idx] == 1) and (output_dict['detection_scores'][idx] > 0.3):
 						if output_dict['detection_scores'][idx] > m_score:
 							m_score = output_dict['detection_scores'][idx]
 							m_idx = idx
 				if m_idx >= 0:
-					print("Class Detected:", output_dict['detection_classes'][m_idx])
+					#print("Class Detected:", output_dict['detection_classes'][m_idx])
 		                        self.coordinates = output_dict["detection_boxes"][m_idx]
 					cv_box_image = self.visualize(self.cv_image, output_dict)
 					self.image = self.bridge.cv2_to_imgmsg(cv_box_image, encoding="passthrough")
 	 				#self.coordinates = self.coordinates[0]
 					#print('Box: ', self.coordinates)
-					self.DetBox.x = self.coordinates[0]
-					self.DetBox.y = self.coordinates[1]
-					self.DetBox.z = self.coordinates[2]
-					self.DetBox.w = self.coordinates[3]
+					self.DetBox.linear.x = self.coordinates[0]
+					self.DetBox.linear.y = self.coordinates[1]
+					self.DetBox.linear.z = self.coordinates[2]
+					self.DetBox.angular.x = self.coordinates[3]
 					self.pubDetBox.publish(self.DetBox)
 				'''
 				for class_i in output_dict['detection_classes']:

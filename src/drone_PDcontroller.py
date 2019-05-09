@@ -20,9 +20,22 @@ from geometry_msgs.msg import Quaternion
 def updateTrackingControl(pertX, pertXRate):
 	#roll = limitCommRoll(pdCommandedRoll(pertX, pertXRate))
 	roll = pdCommandedRoll(pertX, pertXRate)
-	print(roll)
 	#pitch = limitCommPitch(pdCommandedPitch(pertZ, pertZRate))
-	controller.SetCommand(roll, pitch, yaw_velocity,z_velocity)
+	# scale between -8 and +8: (max_s - min_s)*(I - min_i)/(max_i - min_i) + min_s
+	max_s = +1
+	min_s = -1
+	max_i = +8
+	min_i = -8
+	roll = (max_s - min_s)*(roll - min_i)/(max_i - min_i) + min_s
+	#print(roll)
+	if roll < 0:
+		controller.SetCommand(-1, pitch, yaw_velocity,z_velocity)
+		print('Left')
+	elif roll > 0:
+		controller.SetCommand(1, pitch, yaw_velocity,z_velocity)
+		print('Right')
+	else:
+		controller.SetCommand(0, pitch, yaw_velocity,z_velocity)
 
  #PD controller
 def pdCommandedRoll(perturbedX, perturbedXRate):
@@ -32,8 +45,8 @@ def pdCommandedRoll(perturbedX, perturbedXRate):
 
 def DetBox(box):
 	#print(box)
-	xMin = box.y
-	xMax = box.w
+	xMin = box.linear.y
+	xMax = box.angular.x
 	if xMin < 0.3:
 		pertX = 0.4 - xMin
 	elif xMax > 0.7:
@@ -68,7 +81,7 @@ if __name__=='__main__':
 	pertXRate = 0
 	pertZRate = 0
 
-	subDetBox = rospy.Subscriber('/ardrone/pubDetBox',Quaternion,DetBox)
+	subDetBox = rospy.Subscriber('/ardrone/pubDetBox',Twist,DetBox)
 	rospy.spin()
 
 
